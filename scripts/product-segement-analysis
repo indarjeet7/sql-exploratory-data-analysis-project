@@ -1,0 +1,55 @@
+/*Segemet products into cost range and
+=====================================================
+count hw many products fall into each segement*/
+====================================================
+with product_segement as(
+select 
+product_key,
+product_name,
+cost,
+case 
+	when cost < 100 then 'Below 100'
+    when cost between 100 and 500 then '100-500'
+	when cost between 500 and 1000 then '500-1000'
+	else 'Above 1000'
+end cost_range
+from gold.dim_products)
+
+select
+cost_range,
+count(product_key) as total_product
+from product_segement
+group by cost_range
+order by total_product desc
+
+==================================================================================
+/*group customers on three segement based on their spending behaviour
+  -	vip: Customers with at least 12 months of history and spending more than 5000.
+  - Regulat : customers with at least 12 months of history but spending 5000 or less.
+  - New: Customers with a lifespan less than 12 months,
+and find the total number of customers by each group*/
+===================================================================================
+with customer_spending as (
+SELECT 
+    c.customer_key,
+    SUM(f.sales_amount) AS total_spending,
+    MIN(f.order_date) AS first_order,
+    MAX(f.order_date) AS last_order,
+    -- Calculates total months between first and last order
+    (EXTRACT(year FROM AGE(MAX(f.order_date), MIN(f.order_date))) * 12) + 
+     EXTRACT(month FROM AGE(MAX(f.order_date), MIN(f.order_date))) AS lifespan_months
+FROM gold.fact_sales f
+LEFT JOIN gold.dim_customers c
+    ON f.customer_key = c.customer_key
+GROUP BY c.customer_key
+)
+ select 
+ customer_key,
+ total_spending,
+ lifespan_months,
+ case when lifspan_months >= 12 and total_spending >5000 then 'Vip'
+  when lifespan_months  >= 12 and total_spending <= 5000 then 'Regular'
+  else 'new'
+end customer_segment
+from customer_spending
+
